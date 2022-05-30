@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<style>
+form {
+    margin-left: 5%;
+    width: 35%;
+}
+
+.result {
+    margin: auto;
+    width: 35%;
+    border: 1px solid #ccc;
+}
+
+.inputtable select{
+    float: right;
+    width: 130px;
+}
+
+.inputtable {
+    width: 340px;
+}
+
+.prediction_prob {
+    margin: 2% 5%;
+}
+
+.displayinput {
+    font-size:18px;
+    padding: 10px;
+}
+
+.displayresult {
+    border: 5px solid green;
+    padding: 5px;
+}
+
+.displayscore {
+    font-size:18px;
+    margin-left: 50px; 
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+</style>
+
+<head>
+    <title>Covid Predictor application</title>
+</head>
+
+<h1>Covid Probabilty Predictor App</h1>
+<h4>Current Version: Based on data from Israel Ministry of Health (IMOH) from March 12, 2020 to Sept 3, 2020
+<p> Note : Results are only applicable for patients exhibiting at least one symptom.</p> </h4>
+
+<form action="{{ url_for('results') }}" method="POST">  
+    <fieldset class="inputtable">
+        <strong>Provide test information:</strong><br>
+            <label  for="tpr">Test sensitivity (True pos rate):</label>
+            <input type="number" id="tpr" name="tpr" min="0.1" max="1.0", step="any" value=".85"><br>
+
+            <label for="tnr">Test specificity (True neg rate):</label>
+            <input type="number" id="tnr" name="tnr" min="0.1" max="1.0", step="any" value=".99"><br>
+            
+            <label for="test_capacity">Estimated Testing Capacity (this period):</label>
+            <input type="number" id="test_capacity" name="test_capacity" min="1" value="10000"><br>
+            
+            <label for="n_patient">Estimated no. of patients available for testing*:<br>
+                                    <i>(with group satisfying filter condition below)</i></label>
+            <input type="number" id="n_patient" name="n_patient" min="1" value="30000"><br>
+            <br>
+    </fieldset><br>
+
+    <fieldset class="inputtable">
+        <strong>Provide patient information:</strong><br>
+        Cough: 
+        <select name="cough" required>
+            <option></option>
+            <option>Yes</option>
+            <option>No</option>
+        </select> <br>
+        <br> 
+        Fever: 
+        <select name="fever" required>
+            <option></option>
+            <option>Yes</option>
+            <option>No</option>
+        </select> <br>
+        <br> 
+        Sore throat:
+        <select name="sorethroat" required>
+            <option></option>
+            <option>Yes</option>
+            <option>No</option>
+        </select> <br>
+        <br> 
+        Shortness of breath:
+        <select name="shortnessofbreath" required>
+            <option></option>
+            <option>Yes</option>
+            <option>No</option>
+        </select> <br>
+        <br> 
+        Headache:
+        <select name="headache" required>
+            <option></option>
+            <option>Yes</option>
+            <option>No</option>
+        </select> <br>
+        <br> 
+        Age:
+        <select name="sixtiesplus" required>
+            <option></option>
+            <option>Below 60</option>
+            <option>Above 60</option>
+            <option>Unknown</option>
+        </select> <br>
+        <br> 
+        Gender:
+        <select name="gender" required>
+            <option></option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Unknown</option>
+        </select> <br>
+        <br> 
+       Reason for the test:
+        <select name="reasonfortest" required>
+            <option></option>
+            <option>Contact</option>
+            <option>Travel</option>
+            <option>Other</option>
+        </select> <br>
+        <br>
+        <label  for="apt7">Average positive test % in the last 7 days:</label>
+        <input type="number" id="apt7" name="apt7" min="0" max="100" step="any" value="25"><br> 
+        </fieldset>
+        <br>
+        <input type="submit" value="Submit">
+
+</form>
+
+<div class="prediction_prob" align="left">
+    {% if original_patient_input %}
+        <div class="displayinput">
+        | {% for variable, value in original_patient_input.items() %}
+            <b>{{ variable }}</b> : {{ value }} | 
+        {% endfor %} <br><br>
+        | {% for variable, value in original_test_input.items() %}
+            <b>{{ variable }}</b> : {{ value }} | 
+        {% endfor %}
+        </div>
+        <div class="displayresult">
+        {% if prediction_prob %}
+            <p style="font-size:20px"> <strong>Model score (probability of positive PCR) : </strong>{{ prediction_prob }}</p>
+            <p style="font-size:20px"> <strong>Model percentile : </strong>{{ prediction_prob_percentile }}</p>
+            <p style="font-size:20px"> <strong>Policy advice : </strong>{{ policy_advice }}</p>
+            <p style="font-size:20px"> <strong>Model used : </strong>{{ model_name }}</p>
+            {% if model_score %}
+                <p style="font-size:20px"> <strong>Model accuracy report : </strong></p>
+                    <div class=displayscore>
+                        {% for variable, value in model_score.items() %}
+                            <b>{{ variable }}</b> : {{ value }}<br>
+                        {% endfor %} 
+                    </div>
+            {% endif %}
+            
+            <p style="font-size:20px"> <strong>Data Analysis and Summary:</strong> </p>
+            <table style="width:40%; font-size:16px;">
+                <tr>
+                    <td>Filter applied:</td><td>Symptomatic = Yes </td>
+                </tr>
+                <tr>
+                    <td>Observed positive rate:</td><td>{{obs_posrate}}</td>
+                </tr>
+                <tr>
+                    <td>Corrected positive rate:</td><td>{{est_posrate}}</td>
+                </tr>               
+                </table> 
+            
+            <p style="font-size:14px"> <strong>Note :</strong> Results are only applicable for patients exhibiting at least one symptom.</p>
+        {% else %}
+            Results not applicable, at least one symptom must be present. <br>
+        {% endif %}
+            </div>
+    {% endif %}
+</div>
+
+</html>
